@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if UNITY_EDITOR
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -10,15 +12,13 @@ using UnityEngine;
 
 namespace GoogleSpreadSheetParser
 {
-#if UNITY_EDITOR
-
     public class ParserPanel : EditorWindow
     {
         private CodeGenerator _codeGenerator;
         private ConfigData _configData;
         private string _configDataPath;
 
-        private void OnEnable()
+        public void OnEnable()
         {
             _configDataPath = $"{Application.dataPath}/{ConfigConstants.ConfigFilePath}/{ConfigConstants.ConfigFileName}";
             _configData = LoadFile(_configDataPath);
@@ -29,14 +29,14 @@ namespace GoogleSpreadSheetParser
         static private void Init()
         {
             ParserPanel window = EditorWindow.GetWindow<ParserPanel>();
-            window.position = new Rect(100, 100, 900, 500);
+            window.position = new Rect(100, 100, 1100, 500);
         }
 
-        private void OnGUI()
+        public void OnGUI()
         {
             GUILayout.Label("[Parser Config]", EditorStyles.boldLabel);
             _configData.DataPath = EditorGUILayout.TextField("Data Path", _configData.DataPath);
-            _configData.FilePath = EditorGUILayout.TextField("File(.tsv) Path", _configData.FilePath);
+            _configData.FilePath = EditorGUILayout.TextField("File(.csv) Path", _configData.FilePath);
             _configData.EncodingKey = EditorGUILayout.TextField("Encoding Key", _configData.EncodingKey);
 
             string EditTemplete = $"Edit Templete Data Code";
@@ -46,18 +46,18 @@ namespace GoogleSpreadSheetParser
             GUILayout.Label("[Datas]", EditorStyles.boldLabel);
 
             int index = 0;
-            GUILayout.BeginScrollView(new Vector2(0, 300), GUILayout.Width(900), GUILayout.Height(300));
+            GUILayout.BeginScrollView(new Vector2(0, 300), GUILayout.Width(1100), GUILayout.Height(300));
             foreach(var data in _configData.SpreadSheetDatas)
             {
                 GUILayout.BeginHorizontal();
 
                 string TableNameLabel = $"[{index.ToString("D2")}] DataName ";
                 EditorGUIUtility.labelWidth = GUI.skin.label.CalcSize(new GUIContent(TableNameLabel)).x;
-                data.TableName = EditorGUILayout.TextField(TableNameLabel, data.TableName, GUILayout.Width(300));
+                data.TableName = EditorGUILayout.TextField(TableNameLabel, data.TableName, GUILayout.Width(250));
 
                 string UriKeyLabel = "UriKey ";
                 EditorGUIUtility.labelWidth = GUI.skin.label.CalcSize(new GUIContent(UriKeyLabel)).x;
-                data.UriKey = EditorGUILayout.TextField(UriKeyLabel, data.UriKey);
+                data.UriKey = EditorGUILayout.TextField(UriKeyLabel, data.UriKey, GUILayout.Width(400));
 
                 string OpenButton = "Open";
                 if(GUILayout.Button(OpenButton, GUILayout.Width(GUI.skin.label.CalcSize(new GUIContent(OpenButton)).x + 10)))
@@ -70,6 +70,18 @@ namespace GoogleSpreadSheetParser
                 string RemoveButton = "Remove";
                 if(GUILayout.Button(RemoveButton, GUILayout.Width(GUI.skin.label.CalcSize(new GUIContent(RemoveButton)).x + 10)))
                     _configData.SpreadSheetDatas.Remove(data);
+
+                string generageDataKeyToggle = "Generate DataKey";
+                float originalValue = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = GUI.skin.label.CalcSize(new GUIContent(generageDataKeyToggle)).x + 1;
+                data.GenerateDataKey = EditorGUILayout.Toggle(generageDataKeyToggle, data.GenerateDataKey);
+                EditorGUIUtility.labelWidth = originalValue;
+
+                string generageEnumToggle = "Generate Enum";
+                float originalValue2 = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = GUI.skin.label.CalcSize(new GUIContent(generageEnumToggle)).x + 10;
+                data.GenerageEnum = EditorGUILayout.Toggle(generageEnumToggle, data.GenerageEnum);
+                EditorGUIUtility.labelWidth = originalValue2;
 
                 GUILayout.EndHorizontal();
 
@@ -99,30 +111,16 @@ namespace GoogleSpreadSheetParser
 
         private IEnumerator Parse(SpreadSheetData data)
         {
-            yield return DownloadTsv(data);
+            yield return DownloadCsv(data);
 
-            var tsvPath = $"{Application.dataPath}{_configData.FilePath}{data.TableName}{ConfigConstants.OriginalExtensionName}";
+            var csvPath = $"{Application.dataPath}{_configData.FilePath}{data.TableName}{ConfigConstants.OriginalExtensionName}";
             var exportPath = $"{Application.dataPath}{_configData.DataPath}{data.TableName}{ConfigConstants.DataCodeExtension}";
-            _codeGenerator.GenerateByTsv(tsvPath, exportPath, data.TableName);
-            Debug.Log($"{exportPath} Save.");
-        }
+            _codeGenerator.GenerateByCsv(csvPath, exportPath, data.TableName, data.GenerageEnum);
 
-        private void GenerateCode()
-        {
-            //Pass the file path and file name to the StreamReader constructor
-            StreamReader sr = new StreamReader(ConfigConstants.TempleteFilePath);
-            //Read the first line of text
-            var line = sr.ReadLine();
-            //Continue to read until you reach end of file
-            while(line != null)
-            {
-                //write the lie to console window
-                Debug.Log(line);
-                //Read the next line
-                line = sr.ReadLine();
-            }
-            //close the file
-            sr.Close();
+            if(data.GenerateDataKey)
+                DataKeyGenerator.Generate(csvPath, data.TableName);
+
+            Debug.Log($"{exportPath} Save.");
         }
 
         private IEnumerator ParseAll(IEnumerable<SpreadSheetData> datas)
@@ -138,11 +136,11 @@ namespace GoogleSpreadSheetParser
             SaveFile(_configDataPath, _configData);
         }
 
-        private IEnumerator DownloadTsv(SpreadSheetData data)
+        private IEnumerator DownloadCsv(SpreadSheetData data)
         {
             if(string.IsNullOrEmpty(data.UriKey) || string.IsNullOrEmpty(data.TableName))
             {
-                Debug.Log("uriKey또는 TableName이 비어있어 서버로부터 tsv데이터를 다운받을 수 없습니다.");
+                Debug.Log("uriKey또는 TableName이 비어있어 서버로부터 csv데이터를 다운받을 수 없습니다.");
             }
             else
             {
@@ -208,6 +206,6 @@ namespace GoogleSpreadSheetParser
             return target;
         }
     }
+}
 
 #endif
-}

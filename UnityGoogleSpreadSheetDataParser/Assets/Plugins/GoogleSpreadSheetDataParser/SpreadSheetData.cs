@@ -17,5 +17,15 @@ namespace GoogleSpreadSheetParser
         {
             get; set;
         }
+
+        public bool GenerateDataKey
+        {
+            get; set;
+        }
+
+        public bool GenerageEnum
+        {
+            get; set;
+        }
     }
 }
