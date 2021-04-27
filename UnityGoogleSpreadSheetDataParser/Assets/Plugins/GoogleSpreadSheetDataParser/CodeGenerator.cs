@@ -94,7 +94,7 @@ namespace GoogleSpreadSheetParser
 
         private List<string> GetEnumCodeLine(KeyValuePair<string, string[]> data)
         {
-            // 존나 땜빵임 ㅋㅋ
+            // 땜빵임 ㅋㅋ
             var result = new List<string>();
             result.Add($"    public enum {data.Key}");
             result.Add("    {");
